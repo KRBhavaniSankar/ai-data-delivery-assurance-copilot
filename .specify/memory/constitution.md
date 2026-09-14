@@ -7,7 +7,7 @@ Sync Impact Report
 - Follow-up TODOs: none
 -->
 
-# AI-Powered SME Data Delivery Assurance Copilot Constitution
+# AI-Powered Data Delivery Assurance Copilot Constitution
 
 ## Core Principles
 

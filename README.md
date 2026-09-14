@@ -1,10 +1,10 @@
-# AI-Powered SME Data Delivery Assurance Copilot
+# AI-Powered Data Delivery Assurance Copilot
 
 AI-powered Data Delivery Assurance Copilot for Data Engineering — from business requirements and Data Engineering Specification (DE-SDD) to data mapping, data quality, reconciliation, validation and root-cause analysis.
 
 ## Hackathon MVP
 
-The hackathon MVP focuses on a synthetic **SME Monthly Balance Movement Dashboard** use case.
+The hackathon MVP focuses on a synthetic ** Data Dashboard** use case.
 
 The MVP demonstrates:
 
