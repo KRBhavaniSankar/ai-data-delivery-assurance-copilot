@@ -8,9 +8,9 @@ The hackathon MVP focuses on a synthetic **SME Monthly Balance Movement Dashboar
 
 The MVP demonstrates:
 
-- Business requirement understanding
+- Business requirement **understanding**
 - Ambiguity detection and clarification
-- Data discovery using metadata and RAG
+- Data discovery using metadata and **RAG**
 - Data Engineering Specification (DE-SDD)
 - Source-to-target data mapping
 - Data quality rules
