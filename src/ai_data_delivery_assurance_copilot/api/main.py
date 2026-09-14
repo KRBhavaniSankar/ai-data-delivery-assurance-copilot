@@ -1,13 +1,15 @@
 from fastapi import FastAPI, HTTPException
-from ai_data_delivery_assurance_copilot.models.contracts import RequirementInput, ClarificationAnswer
+
+from ai_data_delivery_assurance_copilot.models.contracts import RequirementInput, ClarificationAnswer, DESDD
 from ai_data_delivery_assurance_copilot.services.analyzer import analyze_requirement
 from ai_data_delivery_assurance_copilot.services.spec_builder import build_desdd
+from ai_data_delivery_assurance_copilot.services.discovery import run_discovery
 
-app = FastAPI(title="AI Data Delivery Assurance Copilot - Slice 1", version="0.1.0")
+app = FastAPI(title="AI Data Delivery Assurance Copilot - Slice 2", version="0.1.0")
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "slice": 1}
+    return {"status": "ok", "slice": 2}
 
 @app.post("/analyze")
 def analyze(req: RequirementInput):
@@ -25,7 +27,6 @@ def generate_sdd(payload: dict):
         raise HTTPException(status_code=409, detail={"message": "Blocking clarifications remain", "ambiguity_ids": missing})
     return build_desdd(req.requirement_id, req.title, req.business_requirement, answers)
 
-
 @app.post("/approve-sdd")
 def approve_sdd(payload: dict):
     sdd = payload.get("sdd")
@@ -35,3 +36,13 @@ def approve_sdd(payload: dict):
         raise HTTPException(status_code=409, detail="DE-SDD is not pending approval")
     sdd["specification_metadata"]["status"] = "APPROVED"
     return sdd
+
+@app.post("/discover")
+def discover(payload: dict):
+    try:
+        sdd = DESDD.model_validate(payload["sdd"])
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"Invalid DE-SDD: {exc}") from exc
+    if sdd.specification_metadata.status != "APPROVED":
+        raise HTTPException(status_code=409, detail="DE-SDD must be APPROVED before data discovery")
+    return run_discovery(sdd)

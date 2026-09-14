@@ -1,0 +1,24 @@
+{
+  "table_name": "customer_master",
+  "description": "Customer reference data used to resolve customer attributes and country.",
+  "primary_key": [
+    "customer_id"
+  ],
+  "columns": [
+    {
+      "name": "customer_id",
+      "type": "string",
+      "description": "Unique customer identifier"
+    },
+    {
+      "name": "country_code",
+      "type": "string",
+      "description": "Customer country code"
+    }
+  ],
+  "relationships": [
+    "loan_master.customer_id"
+  ],
+  "sensitivity": "Sensitive",
+  "relevance": "MEDIUM"
+}

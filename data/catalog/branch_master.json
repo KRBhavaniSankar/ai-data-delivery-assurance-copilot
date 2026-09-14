@@ -1,0 +1,29 @@
+{
+  "table_name": "branch_master",
+  "description": "Branch reference data used for branch reporting.",
+  "primary_key": [
+    "branch_id"
+  ],
+  "columns": [
+    {
+      "name": "branch_id",
+      "type": "string",
+      "description": "Unique branch identifier"
+    },
+    {
+      "name": "branch_name",
+      "type": "string",
+      "description": "Branch name"
+    },
+    {
+      "name": "country_code",
+      "type": "string",
+      "description": "Branch country"
+    }
+  ],
+  "relationships": [
+    "loan_master.branch_id"
+  ],
+  "sensitivity": "Internal",
+  "relevance": "MEDIUM"
+}

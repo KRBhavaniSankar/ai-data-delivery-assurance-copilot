@@ -1,0 +1,25 @@
+{
+  "table_name": "country_master",
+  "description": "Country reference data used to standardize country reporting.",
+  "primary_key": [
+    "country_code"
+  ],
+  "columns": [
+    {
+      "name": "country_code",
+      "type": "string",
+      "description": "Country code"
+    },
+    {
+      "name": "country_name",
+      "type": "string",
+      "description": "Country name"
+    }
+  ],
+  "relationships": [
+    "customer_master.country_code",
+    "branch_master.country_code"
+  ],
+  "sensitivity": "Internal",
+  "relevance": "MEDIUM"
+}

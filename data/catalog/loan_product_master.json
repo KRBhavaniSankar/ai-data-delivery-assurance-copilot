@@ -1,0 +1,24 @@
+{
+  "table_name": "loan_product_master",
+  "description": "Loan product reference data used to standardize product reporting.",
+  "primary_key": [
+    "loan_product_id"
+  ],
+  "columns": [
+    {
+      "name": "loan_product_id",
+      "type": "string",
+      "description": "Unique loan product identifier"
+    },
+    {
+      "name": "product_name",
+      "type": "string",
+      "description": "Loan product name"
+    }
+  ],
+  "relationships": [
+    "loan_master.loan_product_id"
+  ],
+  "sensitivity": "Internal",
+  "relevance": "MEDIUM"
+}

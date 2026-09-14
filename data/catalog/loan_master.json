@@ -1,0 +1,51 @@
+{
+  "table_name": "loan_master",
+  "description": "Master loan attributes including customer, branch, product and lifecycle status.",
+  "primary_key": [
+    "loan_id"
+  ],
+  "columns": [
+    {
+      "name": "loan_id",
+      "type": "string",
+      "description": "Unique loan identifier"
+    },
+    {
+      "name": "customer_id",
+      "type": "string",
+      "description": "Customer owning the loan"
+    },
+    {
+      "name": "branch_id",
+      "type": "string",
+      "description": "Servicing branch identifier"
+    },
+    {
+      "name": "loan_product_id",
+      "type": "string",
+      "description": "Loan product identifier"
+    },
+    {
+      "name": "loan_status",
+      "type": "string",
+      "description": "Loan lifecycle status"
+    },
+    {
+      "name": "loan_start_date",
+      "type": "date",
+      "description": "Loan start date"
+    },
+    {
+      "name": "loan_close_date",
+      "type": "date",
+      "description": "Loan close date"
+    }
+  ],
+  "relationships": [
+    "customer_master.customer_id",
+    "branch_master.branch_id",
+    "loan_product_master.loan_product_id"
+  ],
+  "sensitivity": "Sensitive",
+  "relevance": "HIGH"
+}

@@ -1,0 +1,40 @@
+{
+  "table_name": "loan_daily_balance",
+  "description": "Daily loan balance and delinquency information used for point-in-time reporting.",
+  "primary_key": [
+    "loan_id",
+    "balance_date"
+  ],
+  "columns": [
+    {
+      "name": "loan_id",
+      "type": "string",
+      "description": "Unique loan identifier"
+    },
+    {
+      "name": "balance_date",
+      "type": "date",
+      "description": "Balance business date"
+    },
+    {
+      "name": "outstanding_principal",
+      "type": "decimal",
+      "description": "Outstanding principal balance"
+    },
+    {
+      "name": "overdue_amount",
+      "type": "decimal",
+      "description": "Overdue amount"
+    },
+    {
+      "name": "dpd",
+      "type": "integer",
+      "description": "Days past due"
+    }
+  ],
+  "relationships": [
+    "loan_master.loan_id"
+  ],
+  "sensitivity": "Sensitive",
+  "relevance": "HIGH"
+}

@@ -1,12 +1,10 @@
 from typing import Literal
 from pydantic import BaseModel, Field
 
-
 class RequirementInput(BaseModel):
     requirement_id: str = "REQ-001"
     title: str
     business_requirement: str
-
 
 class Ambiguity(BaseModel):
     ambiguity_id: str
@@ -14,7 +12,6 @@ class Ambiguity(BaseModel):
     impact: list[str]
     blocking: bool = True
     options: list[str] = Field(min_length=2)
-
 
 class RequirementAnalysis(BaseModel):
     requirement_id: str
@@ -24,17 +21,14 @@ class RequirementAnalysis(BaseModel):
     ambiguities: list[Ambiguity]
     status: Literal["CLARIFICATION_REQUIRED", "READY_FOR_SPEC"]
 
-
 class ClarificationAnswer(BaseModel):
     requirement_id: str
     ambiguity_id: str
     selected_option: str
     approved_by: str = "BUSINESS_OWNER"
 
-
 class ClarificationState(BaseModel):
     answers: list[ClarificationAnswer] = []
-
 
 class SpecificationMetadata(BaseModel):
     specification_id: str
@@ -44,17 +38,14 @@ class SpecificationMetadata(BaseModel):
     title: str
     grain: str
 
-
 class Scope(BaseModel):
     in_scope: list[str]
     out_of_scope: list[str]
-
 
 class TargetDataModel(BaseModel):
     grain: str
     columns: list[str]
     uniqueness: str
-
 
 class DESDD(BaseModel):
     specification_metadata: SpecificationMetadata
@@ -78,3 +69,45 @@ class DESDD(BaseModel):
     open_questions_clarifications: list[str]
     acceptance_criteria: list[str]
     traceability: list[str]
+
+class CatalogColumn(BaseModel):
+    name: str
+    type: str
+    description: str
+
+class CatalogDataset(BaseModel):
+    table_name: str
+    description: str
+    primary_key: list[str]
+    columns: list[CatalogColumn]
+    relationships: list[str] = []
+    sensitivity: str = "Internal"
+    relevance: Literal["HIGH", "MEDIUM", "LOW"] = "MEDIUM"
+
+class Evidence(BaseModel):
+    evidence_type: Literal["CATALOG", "RAG"]
+    source: str
+    detail: str
+
+class DiscoveredDataset(BaseModel):
+    table_name: str
+    relevance: Literal["HIGH", "MEDIUM", "LOW"]
+    reason: str
+    evidence: list[Evidence]
+
+class DiscoveredMapping(BaseModel):
+    target_field: str
+    source_expression: str
+    mapping_type: Literal["DIRECT", "REFERENCE", "DERIVED", "UNRESOLVED"]
+    rule: str
+    status: Literal["RESOLVED", "REQUIRES_CLARIFICATION"]
+    evidence: list[Evidence]
+
+class DataDiscoveryResult(BaseModel):
+    requirement_id: str
+    sdd_version: str
+    datasets: list[DiscoveredDataset]
+    mappings: list[DiscoveredMapping]
+    knowledge_hits: list[Evidence]
+    unresolved_items: list[str]
+    engine: str = "mock-catalog + llamaindex/qdrant"

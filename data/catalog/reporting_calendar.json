@@ -1,0 +1,27 @@
+{
+  "table_name": "reporting_calendar",
+  "description": "Calendar reference used to define reporting months and month-end reporting dates.",
+  "primary_key": [
+    "reporting_month"
+  ],
+  "columns": [
+    {
+      "name": "reporting_month",
+      "type": "date",
+      "description": "Calendar month used as the reporting period."
+    },
+    {
+      "name": "month_end_date",
+      "type": "date",
+      "description": "Final reporting date for the calendar month."
+    },
+    {
+      "name": "is_month_end",
+      "type": "boolean",
+      "description": "Indicates whether the date represents the final reporting date."
+    }
+  ],
+  "relationships": [],
+  "sensitivity": "Internal",
+  "relevance": "MEDIUM"
+}
