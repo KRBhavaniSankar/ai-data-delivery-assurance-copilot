@@ -128,3 +128,16 @@ class SyntheticDataResult(BaseModel):
     total_rows: int
     datasets: list[SyntheticDatasetSummary]
 
+
+
+class ETLResult(BaseModel):
+    requirement_id: str
+    sdd_version: str
+    status: Literal["COMPLETED"]
+    target_dataset: str
+    target_file: str
+    row_count: int
+    reporting_months: list[str]
+    active_loans_by_month: dict[str, int]
+    transformation_steps: list[str]
+    output_schema: list[str]

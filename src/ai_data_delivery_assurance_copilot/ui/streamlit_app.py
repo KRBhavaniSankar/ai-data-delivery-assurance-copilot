@@ -7,7 +7,7 @@ st.set_page_config(page_title="Data Delivery Assurance Copilot", layout="wide")
 st.title("AI-Powered Data Delivery Assurance Copilot")
 st.caption("Vertical Slice 2 · Requirement → DE-SDD → Data Discovery → Evidence-backed Mapping")
 
-for key, default in [("analysis", None), ("answers", []), ("sdd", None), ("discovery", None), ("synthetic_data", None)]:
+for key, default in [("analysis", None), ("answers", []), ("sdd", None), ("discovery", None), ("synthetic_data", None), ("etl_result", None)]:
     if key not in st.session_state:
         st.session_state[key] = default
 
@@ -36,6 +36,7 @@ with st.expander("1 · Business Requirement", expanded=not bool(st.session_state
         st.session_state.sdd = None
         st.session_state.discovery = None
         st.session_state.synthetic_data = None
+        st.session_state.etl_result = None
         st.rerun()
 
 if st.session_state.analysis:
@@ -218,3 +219,39 @@ if st.session_state.synthetic_data:
             st.caption("Columns: " + ", ".join(item["columns"]))
 
     st.info("Slice 3A complete: APPROVED DE-SDD → deterministic synthetic source data. ETL, DQ, reconciliation and executable validation remain the next Slice 3 stages.")
+
+
+if st.session_state.synthetic_data and not st.session_state.etl_result:
+    st.subheader("7 · Deterministic ETL")
+    st.caption("The approved DE-SDD and discovered mappings drive a deterministic transformation from synthetic source data to the monthly loan portfolio target.")
+    if st.button("Run Deterministic ETL", type="primary"):
+        r = requests.post(
+            f"{API}/run-etl",
+            json={"sdd": st.session_state.sdd},
+            timeout=60,
+        )
+        r.raise_for_status()
+        st.session_state.etl_result = r.json()
+        st.rerun()
+
+if st.session_state.etl_result:
+    e = st.session_state.etl_result
+    st.subheader("7 · Deterministic ETL")
+    st.success(f"ETL completed · Target: {e['target_dataset']} · Rows: {e['row_count']}")
+
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Target Rows", e["row_count"])
+    c2.metric("Reporting Months", len(e["reporting_months"]))
+    c3.metric("Target Grain", "Loan + Month")
+
+    with st.expander("Transformation Contract", expanded=True):
+        for step in e["transformation_steps"]:
+            st.write("✓", step)
+
+    with st.expander("Target Dataset", expanded=True):
+        st.write(f"**File:** `{e['target_file']}`")
+        st.write("**Schema:**", ", ".join(e["output_schema"]))
+        st.write("**Rows by reporting month:**")
+        st.json(e["active_loans_by_month"])
+
+    st.info("Slice 3B complete: synthetic source data → deterministic ETL → monthly loan portfolio target. DQ, reconciliation and executable validation remain the next stages.")
