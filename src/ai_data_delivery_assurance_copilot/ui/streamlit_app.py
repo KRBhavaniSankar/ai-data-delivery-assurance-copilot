@@ -7,7 +7,7 @@ st.set_page_config(page_title="Data Delivery Assurance Copilot", layout="wide")
 st.title("AI-Powered Data Delivery Assurance Copilot")
 st.caption("Vertical Slice 2 · Requirement → DE-SDD → Data Discovery → Evidence-backed Mapping")
 
-for key, default in [("analysis", None), ("answers", []), ("sdd", None), ("discovery", None)]:
+for key, default in [("analysis", None), ("answers", []), ("sdd", None), ("discovery", None), ("synthetic_data", None)]:
     if key not in st.session_state:
         st.session_state[key] = default
 
@@ -17,6 +17,8 @@ if st.session_state.analysis:
 if st.session_state.sdd:
     progress = 0.7
 if st.session_state.discovery:
+    progress = 0.85
+if st.session_state.synthetic_data:
     progress = 1.0
 st.progress(progress)
 
@@ -33,6 +35,7 @@ with st.expander("1 · Business Requirement", expanded=not bool(st.session_state
         st.session_state.answers = []
         st.session_state.sdd = None
         st.session_state.discovery = None
+        st.session_state.synthetic_data = None
         st.rerun()
 
 if st.session_state.analysis:
@@ -184,3 +187,34 @@ if st.session_state.sdd and st.session_state.sdd["specification_metadata"]["stat
             st.warning("Clarification required for: " + ", ".join(d["unresolved_items"]))
         else:
             st.success("All target fields have evidence-backed discovery results.")
+
+
+if st.session_state.discovery and not st.session_state.synthetic_data:
+    st.subheader("6 · Synthetic Source Data")
+    st.caption("Deterministic, synthetic source datasets are generated from the approved DE-SDD context. No intentional defects are introduced in Slice 3A.")
+    if st.button("Generate Synthetic Source Data", type="primary"):
+        r = requests.post(
+            f"{API}/generate-synthetic-data",
+            json={"sdd": st.session_state.sdd},
+            timeout=60,
+        )
+        r.raise_for_status()
+        st.session_state.synthetic_data = r.json()
+        st.rerun()
+
+if st.session_state.synthetic_data:
+    d = st.session_state.synthetic_data
+    st.subheader("6 · Synthetic Source Data")
+    st.success(f"Synthetic baseline generated · Seed: {d['seed']} · Total rows: {d['total_rows']}")
+    st.caption("Baseline is intentionally defect-free. Defect injection belongs to the later validation/RCA slice.")
+
+    c1, c2 = st.columns(2)
+    c1.metric("Datasets", len(d["datasets"]))
+    c2.metric("Total Rows", d["total_rows"])
+
+    with st.expander("Synthetic Dataset Inventory", expanded=True):
+        for item in d["datasets"]:
+            st.markdown(f"**{item['dataset_name']}** · `{item['file_name']}` · {item['row_count']} rows")
+            st.caption("Columns: " + ", ".join(item["columns"]))
+
+    st.info("Slice 3A complete: APPROVED DE-SDD → deterministic synthetic source data. ETL, DQ, reconciliation and executable validation remain the next Slice 3 stages.")

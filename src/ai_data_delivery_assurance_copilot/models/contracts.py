@@ -111,3 +111,20 @@ class DataDiscoveryResult(BaseModel):
     knowledge_hits: list[Evidence]
     unresolved_items: list[str]
     engine: str = "mock-catalog + llamaindex/qdrant"
+
+class SyntheticDatasetSummary(BaseModel):
+    dataset_name: str
+    file_name: str
+    row_count: int
+    columns: list[str]
+
+
+class SyntheticDataResult(BaseModel):
+    requirement_id: str
+    sdd_version: str
+    status: Literal["GENERATED"]
+    output_directory: str
+    seed: int
+    total_rows: int
+    datasets: list[SyntheticDatasetSummary]
+

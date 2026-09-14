@@ -4,6 +4,7 @@ from ai_data_delivery_assurance_copilot.models.contracts import RequirementInput
 from ai_data_delivery_assurance_copilot.services.analyzer import analyze_requirement
 from ai_data_delivery_assurance_copilot.services.spec_builder import build_desdd
 from ai_data_delivery_assurance_copilot.services.discovery import run_discovery
+from ai_data_delivery_assurance_copilot.services.synthetic_data import generate_synthetic_data
 
 app = FastAPI(title="AI Data Delivery Assurance Copilot - Slice 2", version="0.1.0")
 
@@ -46,3 +47,14 @@ def discover(payload: dict):
     if sdd.specification_metadata.status != "APPROVED":
         raise HTTPException(status_code=409, detail="DE-SDD must be APPROVED before data discovery")
     return run_discovery(sdd)
+
+
+@app.post("/generate-synthetic-data")
+def generate_synthetic(payload: dict):
+    try:
+        sdd = DESDD.model_validate(payload["sdd"])
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"Invalid DE-SDD: {exc}") from exc
+    if sdd.specification_metadata.status != "APPROVED":
+        raise HTTPException(status_code=409, detail="DE-SDD must be APPROVED before synthetic data generation")
+    return generate_synthetic_data(sdd)
