@@ -1,0 +1,74 @@
+import requests
+import streamlit as st
+
+API = st.sidebar.text_input("FastAPI URL", "http://localhost:8000")
+
+st.set_page_config(page_title="Data Delivery Assurance Copilot", layout="wide")
+st.title("AI-Powered Data Delivery Assurance Copilot")
+st.caption("Vertical Slice 1 · Requirement → Clarification → DE-SDD")
+
+if "analysis" not in st.session_state: st.session_state.analysis = None
+if "answers" not in st.session_state: st.session_state.answers = []
+if "sdd" not in st.session_state: st.session_state.sdd = None
+
+st.progress(0.2 if not st.session_state.analysis else (0.6 if not st.session_state.sdd else 1.0))
+
+with st.expander("1 · Business Requirement", expanded=not bool(st.session_state.analysis)):
+    title = st.text_input("Requirement title", "Monthly Loan Portfolio Analytics Data Product")
+    default = """Create a monthly loan portfolio dataset containing Loan, Customer, Country, Branch, Loan Product, Reporting Month, Outstanding Principal, Overdue Amount, Days Past Due (DPD), and Risk Bucket.\nThe dataset should represent the latest valid information available for each reporting month.\nThe portfolio should contain active loans and should exclude loans that are no longer relevant to the reporting period.\nOutstanding principal and overdue amounts should represent balances applicable to the reporting month.\nDPD should represent delinquency position for the reporting period.\nLoans should be classified into appropriate risk buckets based on DPD.\nThe data should support aggregation by Country, Branch, Loan Product, Customer, Reporting Month.\nResulting portfolio balances should reconcile with corresponding source loan information.\nDataset should be refreshed monthly and available for management reporting within agreed reporting timeline."""
+    text = st.text_area("Business requirement", default, height=260)
+    if st.button("Analyze Requirement", type="primary"):
+        r = requests.post(f"{API}/analyze", json={"requirement_id":"REQ-001","title":title,"business_requirement":text}, timeout=60)
+        r.raise_for_status(); st.session_state.analysis = r.json(); st.session_state.title = title; st.session_state.text = text; st.session_state.answers=[]; st.session_state.sdd=None; st.rerun()
+
+if st.session_state.analysis:
+    a = st.session_state.analysis
+    st.subheader("2 · Requirement Analysis")
+    c1,c2,c3 = st.columns(3)
+    c1.metric("Entities", len(a["extracted_entities"]))
+    c2.metric("Metrics", len(a["extracted_metrics"]))
+    c3.metric("Ambiguities", len(a["ambiguities"]))
+    st.write("**Entities:**", ", ".join(a["extracted_entities"]))
+    st.write("**Metrics:**", ", ".join(a["extracted_metrics"]))
+    st.write("**Constraints:**", ", ".join(a["extracted_constraints"]))
+
+    ambiguities = a["ambiguities"]
+    idx = len(st.session_state.answers)
+    if idx < len(ambiguities):
+        amb = ambiguities[idx]
+        st.subheader("3 · Clarification Required")
+        st.info(f"**Question {idx+1} of {len(ambiguities)}**\n\n{amb['question']}")
+        labels = {"active_on_month_end":"Active on month-end", "active_on_month_start":"Active on month-start", "active_at_any_point":"Active at any point during month", "latest_valid_as_of_month_end":"Latest valid as of month-end", "latest_received_in_month":"Latest received in month", "latest_available":"Latest available", "closed_only":"Closed only", "closed_and_cancelled":"Closed and cancelled", "business_defined_statuses":"Business-defined statuses", "month_end":"Month-end", "month_start":"Month-start", "monthly_average":"Monthly average", "business_policy":"Approved business policy", "0-30_31-60_61-90_gt-90":"0–30 / 31–60 / 61–90 / >90", "loan_count":"Loan count", "loan_count_and_principal":"Loan count + principal", "loan_count_principal_and_overdue":"Loan count + principal + overdue", "business_defined_deadline":"Business-defined deadline", "next_business_day":"Next business day", "month_end_plus_one_day":"Month-end + 1 day"}
+        opts = amb["options"]
+        selected = st.radio("Select PO decision", opts, format_func=lambda x: labels.get(x,x))
+        if st.button("Record Decision & Continue", type="primary"):
+            st.session_state.answers.append({"requirement_id":"REQ-001","ambiguity_id":amb["ambiguity_id"],"selected_option":selected,"approved_by":"BUSINESS_OWNER"}); st.rerun()
+        st.caption(f"Impact: {', '.join(amb['impact'])}")
+    else:
+        st.success("All blocking clarifications resolved. Ready to generate DE-SDD.")
+        if st.button("Generate DE-SDD v1.0", type="primary"):
+            payload={"requirement":{"requirement_id":"REQ-001","title":st.session_state.title,"business_requirement":st.session_state.text},"answers":st.session_state.answers}
+            r=requests.post(f"{API}/generate-sdd",json=payload,timeout=60); r.raise_for_status(); st.session_state.sdd=r.json(); st.rerun()
+
+if st.session_state.sdd:
+    s=st.session_state.sdd
+    st.subheader("4 · DE-SDD v1.0")
+    st.success("PENDING APPROVAL — human approval required before downstream implementation")
+    meta=s["specification_metadata"]
+    st.write(f"**{meta['specification_id']}** · v{meta['version']} · Grain: **{meta['grain']}**")
+    sections=[("Business Context",s["business_context"]),("Scope",s["scope"]),("Target Data Model",s["target_data_model"]),("Source-to-Target Mapping",s["source_to_target_mapping"]),("Business Rules",s["business_rules"]),("Transformation Rules",s["transformation_rules"]),("DQ Rules",s["data_quality_rules"]),("Reconciliation",s["reconciliation_rules"]),("Tests",s["test_scenarios"]),("Acceptance Criteria",s["acceptance_criteria"]),("Traceability",s["traceability"]),("Open Questions / Clarifications",s["open_questions_clarifications"])]
+    for name, content in sections:
+        with st.expander(name):
+            st.write(content)
+    c1,c2=st.columns(2)
+    if c1.button("Request Changes"):
+        st.warning("Change workflow will be implemented in Vertical Slice 4.")
+    if c2.button("Approve DE-SDD", type="primary"):
+        r=requests.post(f"{API}/approve-sdd", json={"sdd": s}, timeout=60)
+        r.raise_for_status()
+        st.session_state.sdd=r.json()
+        st.rerun()
+    if s["specification_metadata"]["status"] == "APPROVED":
+        st.success("APPROVED — DE-SDD is now the delivery contract. Downstream asset generation remains disabled in Slice 1.")
+    else:
+        st.info("PENDING APPROVAL — human approval is required before downstream implementation.")
