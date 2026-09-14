@@ -7,7 +7,7 @@ st.set_page_config(page_title="Data Delivery Assurance Copilot", layout="wide")
 st.title("AI-Powered Data Delivery Assurance Copilot")
 st.caption("Vertical Slice 2 · Requirement → DE-SDD → Data Discovery → Evidence-backed Mapping")
 
-for key, default in [("analysis", None), ("answers", []), ("sdd", None), ("discovery", None), ("synthetic_data", None), ("etl_result", None)]:
+for key, default in [("analysis", None), ("answers", []), ("sdd", None), ("discovery", None), ("synthetic_data", None), ("etl_result", None), ("dq_result", None), ("functional_result", None)]:
     if key not in st.session_state:
         st.session_state[key] = default
 
@@ -37,6 +37,8 @@ with st.expander("1 · Business Requirement", expanded=not bool(st.session_state
         st.session_state.discovery = None
         st.session_state.synthetic_data = None
         st.session_state.etl_result = None
+        st.session_state.dq_result = None
+        st.session_state.functional_result = None
         st.rerun()
 
 if st.session_state.analysis:
@@ -254,4 +256,88 @@ if st.session_state.etl_result:
         st.write("**Rows by reporting month:**")
         st.json(e["active_loans_by_month"])
 
-    st.info("Slice 3B complete: synthetic source data → deterministic ETL → monthly loan portfolio target. DQ, reconciliation and executable validation remain the next stages.")
+    st.info("Slice 3B complete: synthetic source data → deterministic ETL → monthly loan portfolio target. DQ and reconciliation remain the next stage.")
+
+
+if st.session_state.etl_result and not st.session_state.dq_result:
+    st.subheader("8 · Data Quality & Reconciliation")
+    st.caption("Deterministic validation executes the approved DE-SDD DQ and reconciliation rules. The validator is the authority for PASS/FAIL; no LLM is used to determine the result.")
+    if st.button("Run DQ & Reconciliation", type="primary"):
+        r = requests.post(
+            f"{API}/run-data-quality",
+            json={"sdd": st.session_state.sdd},
+            timeout=60,
+        )
+        r.raise_for_status()
+        st.session_state.dq_result = r.json()
+        st.rerun()
+
+if st.session_state.dq_result:
+    v = st.session_state.dq_result
+    st.subheader("8 · Data Quality & Reconciliation")
+    if v["status"] == "PASS":
+        st.success(f"VALIDATION PASS · {v['passed_checks']} / {v['total_checks']} checks passed")
+    else:
+        st.error(f"VALIDATION FAIL · {v['failed_checks']} / {v['total_checks']} checks failed")
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Total Checks", v["total_checks"])
+    c2.metric("Passed", v["passed_checks"])
+    c3.metric("Failed", v["failed_checks"])
+    c4.metric("Engine", "Deterministic")
+
+    with st.expander("DQ Rule Results", expanded=True):
+        for rule in v["dq_rules"]:
+            badge = "✓" if rule["status"] == "PASS" else "✗"
+            st.markdown(f"**{badge} {rule['rule_id']}** · {rule['description']}")
+            st.write(f"Checked: {rule['checked_rows']} · Failed: {rule['failed_rows']}")
+            if rule["sample_failures"]:
+                st.warning("Sample failures: " + ", ".join(rule["sample_failures"]))
+
+    with st.expander("Reconciliation Results", expanded=True):
+        for rule in v["reconciliation_rules"]:
+            badge = "✓" if rule["status"] == "PASS" else "✗"
+            st.markdown(f"**{badge} {rule['rule_id']}** · {rule['description']}")
+            st.write(f"Source: `{rule['source_value']}` · Target: `{rule['target_value']}` · Difference: `{rule['difference']}`")
+
+    st.info("Slice 3C complete: target dataset → DQ rules + source/target reconciliation → deterministic PASS/FAIL. Functional test execution is the next stage.")
+
+
+if st.session_state.dq_result and not st.session_state.functional_result:
+    st.subheader("9 · Functional Test Execution")
+    st.caption("The approved DE-SDD test scenarios are executed against the deterministic target. PASS/FAIL is computed by the functional validation engine; no LLM is used as the authority.")
+    if st.button("Run Functional Tests", type="primary"):
+        r = requests.post(
+            f"{API}/run-functional-tests",
+            json={"sdd": st.session_state.sdd},
+            timeout=60,
+        )
+        r.raise_for_status()
+        st.session_state.functional_result = r.json()
+        st.rerun()
+
+if st.session_state.functional_result:
+    f = st.session_state.functional_result
+    st.subheader("9 · Functional Test Execution")
+    if f["status"] == "PASS":
+        st.success(f"FUNCTIONAL VALIDATION PASS · {f['passed_tests']} / {f['total_tests']} tests passed")
+    else:
+        st.error(f"FUNCTIONAL VALIDATION FAIL · {f['failed_tests']} / {f['total_tests']} tests failed")
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Total Tests", f["total_tests"])
+    c2.metric("Passed", f["passed_tests"])
+    c3.metric("Failed", f["failed_tests"])
+    c4.metric("Engine", "Deterministic")
+
+    with st.expander("DE-SDD Test Results", expanded=True):
+        for test in f["tests"]:
+            badge = "✓" if test["status"] == "PASS" else "✗"
+            st.markdown(f"**{badge} {test['test_id']}** · {test['description']}")
+            st.caption(test["evidence"])
+
+    if f["status"] == "PASS" and st.session_state.dq_result["status"] == "PASS":
+        st.success("OVERALL DELIVERY VALIDATION: PASS — DQ, reconciliation and functional tests all passed.")
+        st.info("Clean baseline is now frozen. Intentional defect injection, RCA and retest remain deferred to the later RCA/chaos slice.")
+    else:
+        st.warning("Overall delivery validation remains FAIL until all deterministic gates pass.")

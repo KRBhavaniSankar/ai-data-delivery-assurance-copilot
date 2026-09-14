@@ -141,3 +141,51 @@ class ETLResult(BaseModel):
     active_loans_by_month: dict[str, int]
     transformation_steps: list[str]
     output_schema: list[str]
+
+class DQRuleResult(BaseModel):
+    rule_id: str
+    description: str
+    status: Literal["PASS", "FAIL"]
+    checked_rows: int
+    failed_rows: int
+    sample_failures: list[str] = []
+
+
+class ReconciliationResult(BaseModel):
+    rule_id: str
+    description: str
+    status: Literal["PASS", "FAIL"]
+    source_value: str
+    target_value: str
+    difference: str
+
+
+class DataQualityResult(BaseModel):
+    requirement_id: str
+    sdd_version: str
+    status: Literal["PASS", "FAIL"]
+    target_dataset: str
+    dq_rules: list[DQRuleResult]
+    reconciliation_rules: list[ReconciliationResult]
+    total_checks: int
+    passed_checks: int
+    failed_checks: int
+    engine: str = "deterministic python validator"
+
+
+class FunctionalTestResult(BaseModel):
+    test_id: str
+    description: str
+    status: Literal["PASS", "FAIL"]
+    evidence: str
+
+
+class FunctionalValidationResult(BaseModel):
+    requirement_id: str
+    sdd_version: str
+    status: Literal["PASS", "FAIL"]
+    total_tests: int
+    passed_tests: int
+    failed_tests: int
+    tests: list[FunctionalTestResult]
+    engine: str = "deterministic python functional validator"
