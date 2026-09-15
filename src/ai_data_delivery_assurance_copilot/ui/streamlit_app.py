@@ -5,9 +5,9 @@ API = st.sidebar.text_input("FastAPI URL", "http://localhost:8000")
 
 st.set_page_config(page_title="Data Delivery Assurance Copilot", layout="wide")
 st.title("AI-Powered Data Delivery Assurance Copilot")
-st.caption("Vertical Slice 2 · Requirement → DE-SDD → Data Discovery → Evidence-backed Mapping")
+st.caption("Vertical Slices 1–5 · Requirement → DE-SDD → Discovery → Delivery Validation → Change → RCA")
 
-for key, default in [("analysis", None), ("answers", []), ("sdd", None), ("discovery", None), ("synthetic_data", None), ("etl_result", None), ("dq_result", None), ("functional_result", None)]:
+for key, default in [("analysis", None), ("answers", []), ("sdd", None), ("discovery", None), ("synthetic_data", None), ("etl_result", None), ("dq_result", None), ("functional_result", None), ("change_analysis", None), ("change_impact", None), ("defect", None), ("defect_dq", None), ("defect_functional", None), ("rca", None), ("remediation", None), ("retest", None)]:
     if key not in st.session_state:
         st.session_state[key] = default
 
@@ -39,6 +39,14 @@ with st.expander("1 · Business Requirement", expanded=not bool(st.session_state
         st.session_state.etl_result = None
         st.session_state.dq_result = None
         st.session_state.functional_result = None
+        st.session_state.change_analysis = None
+        st.session_state.change_impact = None
+        st.session_state.defect = None
+        st.session_state.defect_dq = None
+        st.session_state.defect_functional = None
+        st.session_state.rca = None
+        st.session_state.remediation = None
+        st.session_state.retest = None
         st.rerun()
 
 if st.session_state.analysis:
@@ -338,6 +346,182 @@ if st.session_state.functional_result:
 
     if f["status"] == "PASS" and st.session_state.dq_result["status"] == "PASS":
         st.success("OVERALL DELIVERY VALIDATION: PASS — DQ, reconciliation and functional tests all passed.")
-        st.info("Clean baseline is now frozen. Intentional defect injection, RCA and retest remain deferred to the later RCA/chaos slice.")
+        st.info("Clean baseline is now frozen. You can now demonstrate the mid-sprint change path and the controlled defect → RCA → remediation → retest path.")
     else:
         st.warning("Overall delivery validation remains FAIL until all deterministic gates pass.")
+
+
+if st.session_state.functional_result and st.session_state.sdd["specification_metadata"]["status"] == "APPROVED":
+    st.divider()
+    st.subheader("10 · Mid-Sprint PO Change Request")
+    st.caption("A post-approval business change is analyzed against DE-SDD v1.0. The Copilot must clarify blocking semantics before producing v1.1 and downstream impact analysis.")
+
+    default_change = (
+        "I just realized closed loans should be included if they were active at any point "
+        "during the reporting month. Also, please exclude loans with zero outstanding balance."
+    )
+    change_text = st.text_area("PO change request", default_change, height=130, key="change_text")
+
+    if not st.session_state.change_analysis and not st.session_state.change_impact:
+        if st.button("Analyze PO Change", type="primary"):
+            r = requests.post(
+                f"{API}/analyze-change",
+                json={"sdd": st.session_state.sdd, "change_text": change_text},
+                timeout=60,
+            )
+            r.raise_for_status()
+            st.session_state.change_analysis = r.json()
+            st.rerun()
+
+if st.session_state.change_analysis:
+    ca = st.session_state.change_analysis
+    st.subheader("11 · Change Clarification")
+    if ca["status"] == "CLARIFICATION_REQUIRED":
+        cl = ca["clarification"]
+        st.warning("Blocking clarification required before DE-SDD v1.1 can be created.")
+        st.info(f"**Question:** {cl['question']}")
+        labels = {
+            "active_on_month_start": "Active on month-start",
+            "active_on_month_end": "Active on month-end",
+            "active_at_any_point": "Active at any point during month",
+        }
+        selected = st.radio("PO decision", cl["options"], format_func=lambda x: labels.get(x, x), key="change_decision")
+        if st.button("Record PO Decision & Analyze Impact", type="primary"):
+            r = requests.post(
+                f"{API}/apply-change",
+                json={"sdd": st.session_state.sdd, "selected_option": selected},
+                timeout=60,
+            )
+            r.raise_for_status()
+            st.session_state.change_impact = r.json()
+            st.session_state.change_analysis = None
+            st.rerun()
+
+if st.session_state.change_impact:
+    ci = st.session_state.change_impact
+    st.subheader("12 · DE-SDD v1.1 Change Impact Analysis")
+    st.success("PO clarification resolved · DE-SDD v1.1 is ready for human approval. No implementation artifacts have been changed yet.")
+    st.write(f"**Base:** v{ci['base_version']} → **Proposed:** v{ci['proposed_version']}")
+
+    with st.expander("Approved Change", expanded=True):
+        st.write(ci["change_summary"])
+        st.write(f"**Clarification decision:** `{ci['clarification_decision']}`")
+
+    with st.expander("Impacted Downstream Artifacts", expanded=True):
+        for item in ci["impacted_artifacts"]:
+            badge = {"IMPACTED": "🔴", "ADDED": "🟠", "REVIEW": "🟡"}[item["impact_status"]]
+            st.markdown(f"**{badge} {item['artifact_id']}** · {item['artifact_type']} · `{item['impact_status']}`")
+            st.caption(item["reason"])
+
+    with st.expander("DE-SDD v1.1 Preview", expanded=False):
+        s11 = ci["sdd"]
+        st.write(f"**Version:** {s11['specification_metadata']['version']} · **Status:** {s11['specification_metadata']['status']}")
+        for name, content in [
+            ("Business Rules", s11["business_rules"]),
+            ("Transformation Rules", s11["transformation_rules"]),
+            ("DQ Rules", s11["data_quality_rules"]),
+            ("Tests", s11["test_scenarios"]),
+            ("Acceptance Criteria", s11["acceptance_criteria"]),
+            ("Open Questions / Clarifications", s11["open_questions_clarifications"]),
+        ]:
+            st.markdown(f"**{name}**")
+            st.write(content)
+
+    st.info("Change impact only identifies affected artifacts. ETL, DQ, reconciliation, tests and SQA remain unchanged until DE-SDD v1.1 is approved.")
+
+
+if st.session_state.functional_result and st.session_state.functional_result.get("status") == "PASS" and st.session_state.dq_result and st.session_state.dq_result.get("status") == "PASS":
+    st.divider()
+    st.subheader("13 · Controlled Defect → RCA → Remediation → Retest")
+    st.caption("The clean baseline is intentionally corrupted, validated deterministically, analyzed with evidence, regenerated from clean sources, and retested.")
+
+    if not st.session_state.defect:
+        if st.button("Inject Controlled Defect", type="primary"):
+            r = requests.post(f"{API}/inject-defect", json={"sdd": st.session_state.sdd}, timeout=60)
+            r.raise_for_status()
+            st.session_state.defect = r.json()
+            # Re-run deterministic gates against the intentionally corrupted target.
+            dq = requests.post(f"{API}/run-data-quality", json={"sdd": st.session_state.sdd}, timeout=60)
+            dq.raise_for_status()
+            st.session_state.defect_dq = dq.json()
+            ft = requests.post(f"{API}/run-functional-tests", json={"sdd": st.session_state.sdd}, timeout=60)
+            ft.raise_for_status()
+            st.session_state.defect_functional = ft.json()
+            st.rerun()
+
+if st.session_state.defect:
+    d = st.session_state.defect
+    st.subheader("13 · Controlled Defect")
+    st.error(f"DEFECT INJECTED · {d['defect_id']} · {d['defect_type']}")
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Affected Record", d["affected_record"])
+    c2.metric("Original", d["original_value"])
+    c3.metric("Corrupted", d["corrupted_value"])
+    st.write(d["description"])
+
+    if st.session_state.defect_dq:
+        v = st.session_state.defect_dq
+        if v["status"] == "FAIL":
+            st.error(f"DETERMINISTIC VALIDATION FAIL · {v['failed_checks']} checks failed")
+        else:
+            st.warning("Expected a validation failure after controlled defect injection.")
+
+    if st.session_state.defect_functional:
+        f = st.session_state.defect_functional
+        if f["status"] == "FAIL":
+            st.error(f"FUNCTIONAL VALIDATION FAIL · {f['failed_tests']} tests failed")
+
+    if not st.session_state.rca and st.session_state.defect_dq and st.session_state.defect_functional:
+        if st.button("Run Evidence-Based RCA", type="primary"):
+            r = requests.post(
+                f"{API}/run-rca",
+                json={"sdd": st.session_state.sdd, "dq_result": st.session_state.defect_dq, "functional_result": st.session_state.defect_functional},
+                timeout=60,
+            )
+            r.raise_for_status()
+            st.session_state.rca = r.json()
+            st.rerun()
+
+if st.session_state.rca:
+    rca = st.session_state.rca
+    st.subheader("14 · Evidence-Based RCA")
+    if rca["status"] == "ROOT_CAUSE_IDENTIFIED":
+        st.success("ROOT CAUSE IDENTIFIED · Deterministic evidence supports the RCA.")
+    else:
+        st.warning("RCA requires human review.")
+    with st.expander("Root Cause", expanded=True):
+        st.write(rca["root_cause"])
+    with st.expander("Evidence", expanded=True):
+        for item in rca["evidence"]:
+            st.write("•", item)
+    with st.expander("Recommended Remediation", expanded=True):
+        st.write(rca["remediation"])
+
+    if not st.session_state.remediation:
+        if st.button("Apply Remediation", type="primary"):
+            r = requests.post(f"{API}/remediate", json={"sdd": st.session_state.sdd}, timeout=60)
+            r.raise_for_status()
+            st.session_state.remediation = r.json()
+            st.rerun()
+
+if st.session_state.remediation:
+    rem = st.session_state.remediation
+    st.subheader("15 · Remediation")
+    st.success("REMEDIATED · Target regenerated from clean synthetic source data using deterministic ETL.")
+    st.write(f"**Action:** {rem['action']}")
+
+    if not st.session_state.retest:
+        if st.button("Run Retest", type="primary"):
+            r = requests.post(f"{API}/retest", json={"sdd": st.session_state.sdd}, timeout=60)
+            r.raise_for_status()
+            st.session_state.retest = r.json()
+            st.rerun()
+
+if st.session_state.retest:
+    rt = st.session_state.retest
+    st.subheader("16 · Retest")
+    if rt["status"] == "PASS":
+        st.success(f"RETEST PASS · DQ {rt['dq_passed']}/{rt['dq_total']} · Functional {rt['functional_passed']}/{rt['functional_total']}")
+        st.success("FAIL → RCA → REMEDIATION → RETEST → PASS")
+    else:
+        st.error("RETEST FAIL · Deterministic gates still failing.")

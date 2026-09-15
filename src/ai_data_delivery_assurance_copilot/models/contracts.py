@@ -189,3 +189,79 @@ class FunctionalValidationResult(BaseModel):
     failed_tests: int
     tests: list[FunctionalTestResult]
     engine: str = "deterministic python functional validator"
+
+
+class ChangeClarification(BaseModel):
+    clarification_id: str
+    question: str
+    options: list[str]
+    blocking: bool = True
+    impact: list[str]
+
+
+class ChangeAnalysis(BaseModel):
+    requirement_id: str
+    base_version: str
+    change_summary: str
+    status: Literal["CLARIFICATION_REQUIRED", "REQUIRES_REVIEW"]
+    clarification: ChangeClarification | None = None
+
+
+class ImpactedArtifact(BaseModel):
+    artifact_id: str
+    artifact_type: str
+    impact_status: Literal["IMPACTED", "ADDED", "REVIEW"]
+    reason: str
+
+
+class ChangeImpactResult(BaseModel):
+    requirement_id: str
+    base_version: str
+    proposed_version: str
+    status: Literal["READY_FOR_APPROVAL"]
+    change_summary: str
+    clarification_decision: str
+    sdd: DESDD
+    impacted_artifacts: list[ImpactedArtifact]
+
+class DefectInjectionResult(BaseModel):
+    requirement_id: str
+    sdd_version: str
+    defect_id: str
+    defect_type: str
+    status: Literal["INJECTED"]
+    target_file: str
+    affected_record: str
+    original_value: str
+    corrupted_value: str
+    description: str
+
+
+class RCAResult(BaseModel):
+    requirement_id: str
+    sdd_version: str
+    status: Literal["ROOT_CAUSE_IDENTIFIED", "REQUIRES_HUMAN_REVIEW"]
+    root_cause: str
+    evidence: list[str]
+    remediation: str
+    deterministic: bool
+
+
+class RemediationResult(BaseModel):
+    requirement_id: str
+    sdd_version: str
+    status: Literal["REMEDIATED"]
+    action: str
+    target_file: str
+
+
+class RetestResult(BaseModel):
+    requirement_id: str
+    sdd_version: str
+    status: Literal["PASS", "FAIL"]
+    dq_status: Literal["PASS", "FAIL"]
+    functional_status: Literal["PASS", "FAIL"]
+    dq_passed: int
+    dq_total: int
+    functional_passed: int
+    functional_total: int

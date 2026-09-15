@@ -8,12 +8,13 @@ from ai_data_delivery_assurance_copilot.services.synthetic_data import generate_
 from ai_data_delivery_assurance_copilot.services.etl import run_etl
 from ai_data_delivery_assurance_copilot.services.validation import run_data_quality_validation
 from ai_data_delivery_assurance_copilot.services.functional_tests import run_functional_tests
+from ai_data_delivery_assurance_copilot.services.change_impact import analyze_change, apply_change
 
-app = FastAPI(title="AI Data Delivery Assurance Copilot - Slice 3D", version="0.1.0")
+app = FastAPI(title="AI Data Delivery Assurance Copilot - Slices 1–5", version="0.1.0")
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "slice": "3D"}
+    return {"status": "ok", "slice": "1-5"}
 
 @app.post("/analyze")
 def analyze(req: RequirementInput):
@@ -103,3 +104,81 @@ def run_functional(payload: dict):
         return run_functional_tests(sdd)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.post("/analyze-change")
+def analyze_requirement_change(payload: dict):
+    try:
+        sdd = DESDD.model_validate(payload["sdd"])
+        change_text = str(payload["change_text"]).strip()
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"Invalid change request: {exc}") from exc
+    if sdd.specification_metadata.status != "APPROVED":
+        raise HTTPException(status_code=409, detail="DE-SDD must be APPROVED before a mid-sprint change is analyzed")
+    return analyze_change(sdd, change_text)
+
+
+@app.post("/apply-change")
+def apply_requirement_change(payload: dict):
+    try:
+        sdd = DESDD.model_validate(payload["sdd"])
+        selected_option = str(payload["selected_option"])
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"Invalid change decision: {exc}") from exc
+    if sdd.specification_metadata.status != "APPROVED":
+        raise HTTPException(status_code=409, detail="DE-SDD must be APPROVED before applying a change")
+    try:
+        return apply_change(sdd, selected_option)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@app.post("/inject-defect")
+def inject_defect(payload: dict):
+    try:
+        sdd = DESDD.model_validate(payload["sdd"])
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"Invalid DE-SDD: {exc}") from exc
+    if sdd.specification_metadata.status != "APPROVED":
+        raise HTTPException(status_code=409, detail="DE-SDD must be APPROVED before defect injection")
+    try:
+        from ai_data_delivery_assurance_copilot.services.defect_rca import inject_controlled_defect
+        return inject_controlled_defect(sdd)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.post("/run-rca")
+def run_root_cause_analysis(payload: dict):
+    try:
+        sdd = DESDD.model_validate(payload["sdd"])
+        dq_result = payload["dq_result"]
+        functional_result = payload["functional_result"]
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"Invalid RCA request: {exc}") from exc
+    from ai_data_delivery_assurance_copilot.services.defect_rca import run_rca
+    return run_rca(sdd, dq_result, functional_result)
+
+
+@app.post("/remediate")
+def remediate_defect(payload: dict):
+    try:
+        sdd = DESDD.model_validate(payload["sdd"])
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"Invalid DE-SDD: {exc}") from exc
+    if sdd.specification_metadata.status != "APPROVED":
+        raise HTTPException(status_code=409, detail="DE-SDD must be APPROVED before remediation")
+    from ai_data_delivery_assurance_copilot.services.defect_rca import remediate
+    return remediate(sdd)
+
+
+@app.post("/retest")
+def retest_defect(payload: dict):
+    try:
+        sdd = DESDD.model_validate(payload["sdd"])
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"Invalid DE-SDD: {exc}") from exc
+    if sdd.specification_metadata.status != "APPROVED":
+        raise HTTPException(status_code=409, detail="DE-SDD must be APPROVED before retest")
+    from ai_data_delivery_assurance_copilot.services.defect_rca import retest
+    return retest(sdd)
